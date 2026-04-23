@@ -1,7 +1,8 @@
 {
   "name": "ai-agent-eval-kit",
   "version": "1.0.0",
-  "description": "Evals listos para usar para agentes de IA",
+  "type": "module",
+  "description": "Ready-to-use evals for AI agents",
   "scripts": {
     "eval": "tsx eval_runner.ts",
     "eval:all": "tsx eval_runner.ts --all",
