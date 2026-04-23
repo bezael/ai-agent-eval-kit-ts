@@ -1,0 +1,18 @@
+{
+  "name": "ai-agent-eval-kit",
+  "version": "1.0.0",
+  "description": "Evals listos para usar para agentes de IA",
+  "scripts": {
+    "eval": "tsx eval_runner.ts",
+    "eval:all": "tsx eval_runner.ts --all",
+    "eval:save": "tsx eval_runner.ts --all --save"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.40.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
+  }
+}
