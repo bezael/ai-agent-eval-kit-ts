@@ -128,7 +128,7 @@ jobs:
 
 El PDF con la explicación detallada de cada eval, criterios de paso y plantilla de registro de resultados es exclusivo para suscriptores del newsletter **Build con IA**.
 
-→ [Suscríbete gratis y descarga el PDF](https://dominicode.com/newsletter)
+→ [Suscríbete gratis y descarga el PDF](https://dominicode.com/newsletter?source=repo_ai-agent-eval-kit-ts&topic=ai-agent)
 
 ---
 
