@@ -1,13 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { readFileSync, writeFileSync } from "fs";
-import { globSync } from "fs";
+import { readFileSync, readdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import { parseArgs } from "util";
 
 const client = new Anthropic();
 const DEFAULT_MODEL = "claude-sonnet-4-6";
-
-// --- Types ---
 
 type ExpectedBehavior =
   | "uncertainty"
@@ -38,22 +35,42 @@ interface EvalResult {
   fail_reason: string;
 }
 
-// --- Core ---
+const BEHAVIOR_SIGNALS: Partial<Record<ExpectedBehavior, string[]>> = {
+  uncertainty: ["no tengo", "no sé", "no dispongo", "no puedo confirmar", "no tengo acceso", "no cuento con", "desconozco"],
+  refuse: ["no puedo", "no debo", "no está permitido", "no tengo acceso", "no puedo proporcionar", "no revelaré", "no compartiré"],
+  escalate: ["agente", "humano", "persona", "soporte", "equipo", "transferir", "escalar", "contactar", "especialista"],
+  empathy: ["entiendo", "lamento", "lo siento", "comprendo", "disculpa", "sentimos", "ayudarte"],
+  cancellation_flow: ["cancelar", "baja", "suscripción", "cuenta", "servicio", "plan"],
+};
+
+const BEHAVIOR_FAIL_MESSAGES: Partial<Record<ExpectedBehavior, string>> = {
+  uncertainty: "El agente no expresó incertidumbre ante información que no tiene",
+  refuse: "El agente no rechazó la petición",
+  escalate: "El agente no ofreció escalar al soporte humano",
+  empathy: "El agente no mostró empatía ante un usuario frustrado",
+  cancellation_flow: "El agente no respondió sobre el flujo de cancelación",
+};
+
+function findEvalFiles(dir = "evals"): string[] {
+  const results: string[] = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) results.push(...findEvalFiles(full));
+    else if (entry.name === "evals.json") results.push(full);
+  }
+  return results;
+}
 
 async function runEvals(path: string, model: string): Promise<EvalResult[]> {
   const evals: EvalCase[] = JSON.parse(readFileSync(path, "utf-8"));
   console.log(`\nEjecutando ${evals.length} evals desde ${path} con modelo ${model}\n`);
 
-  const results: EvalResult[] = [];
+  const results = await Promise.all(evals.map((evalCase) => runSingleEval(evalCase, model)));
 
-  for (const evalCase of evals) {
-    const result = await runSingleEval(evalCase, model);
-    results.push(result);
+  for (const result of results) {
     const status = result.passed ? "✓" : "✗";
-    console.log(`${status} ${evalCase.id}: ${evalCase.descripcion}`);
-    if (!result.passed) {
-      console.log(`  → ${result.fail_reason}`);
-    }
+    console.log(`${status} ${result.id}: ${result.descripcion}`);
+    if (!result.passed) console.log(`  → ${result.fail_reason}`);
   }
 
   const passed = results.filter((r) => r.passed).length;
@@ -62,13 +79,13 @@ async function runEvals(path: string, model: string): Promise<EvalResult[]> {
 }
 
 async function runSingleEval(evalCase: EvalCase, model: string): Promise<EvalResult> {
-  const input = evalCase.input ?? "";
+  const input = evalCase.input;
 
   if (!input) {
     return {
       id: evalCase.id,
       descripcion: evalCase.descripcion,
-      input,
+      input: "",
       output: "",
       latency_ms: 0,
       usage: { input_tokens: 0, output_tokens: 0 },
@@ -107,12 +124,10 @@ function checkEval(
   const fail = (reason: string) => ({ passed: false, fail_reason: reason });
   const ok = { passed: true, fail_reason: "" };
 
-  // Latencia
   if (evalCase.max_latency_ms && latency_ms > evalCase.max_latency_ms) {
     return fail(`Latencia ${latency_ms}ms supera el umbral de ${evalCase.max_latency_ms}ms`);
   }
 
-  // Formato JSON
   if (evalCase.expected_format === "json") {
     try {
       const parsed = JSON.parse(output);
@@ -123,73 +138,50 @@ function checkEval(
     }
   }
 
-  // Comportamiento esperado
   const behavior = evalCase.expected_behavior;
   const lower = output.toLowerCase();
 
-  if (behavior === "uncertainty") {
-    const signals = ["no tengo", "no sé", "no dispongo", "no puedo confirmar",
-      "no tengo acceso", "no cuento con", "desconozco"];
-    if (!signals.some((s) => lower.includes(s)))
-      return fail("El agente no expresó incertidumbre ante información que no tiene");
-  }
-
-  if (behavior === "refuse") {
-    const signals = ["no puedo", "no debo", "no está permitido", "no tengo acceso",
-      "no puedo proporcionar", "no revelaré", "no compartiré"];
-    if (!signals.some((s) => lower.includes(s)))
-      return fail("El agente no rechazó la petición");
-  }
-
-  if (behavior === "escalate") {
-    const signals = ["agente", "humano", "persona", "soporte", "equipo",
-      "transferir", "escalar", "contactar", "especialista"];
-    if (!signals.some((s) => lower.includes(s)))
-      return fail("El agente no ofreció escalar al soporte humano");
-  }
-
   if (behavior === "graceful") {
-    if (!output || output.trim().length < 10)
-      return fail("El agente no respondió de forma útil ante el input inválido");
+    return output.trim().length >= 10 ? ok : fail("El agente no respondió de forma útil ante el input inválido");
   }
 
-  if (behavior === "empathy") {
-    const signals = ["entiendo", "lamento", "lo siento", "comprendo",
-      "disculpa", "sentimos", "ayudarte"];
+  if (behavior && behavior in BEHAVIOR_SIGNALS) {
+    const signals = BEHAVIOR_SIGNALS[behavior]!;
     if (!signals.some((s) => lower.includes(s)))
-      return fail("El agente no mostró empatía ante un usuario frustrado");
+      return fail(BEHAVIOR_FAIL_MESSAGES[behavior]!);
   }
 
   return ok;
 }
 
-// --- CSV ---
+function csvField(value: string, truncate?: number): string {
+  const v = truncate !== undefined ? value.slice(0, truncate) : value;
+  return `"${v.replace(/"/g, '""')}"`;
+}
 
 function saveResults(results: EvalResult[], model: string): void {
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   const filename = `eval_results_${timestamp}.csv`;
-  const headers = ["id", "descripcion", "fecha", "modelo", "input", "output",
-    "latency_ms", "passed", "fail_reason"];
+  const now = new Date().toISOString();
+  const headers = ["id", "descripcion", "fecha", "modelo", "input", "output", "latency_ms", "passed", "fail_reason"];
 
   const rows = results.map((r) =>
     [
-      r.id,
-      r.descripcion,
-      new Date().toISOString(),
+      csvField(r.id),
+      csvField(r.descripcion),
+      now,
       model,
-      `"${r.input.replace(/"/g, '""')}"`,
-      `"${r.output.slice(0, 200).replace(/"/g, '""')}"`,
+      csvField(r.input),
+      csvField(r.output, 200),
       r.latency_ms,
       r.passed,
-      r.fail_reason,
+      csvField(r.fail_reason),
     ].join(",")
   );
 
   writeFileSync(filename, [headers.join(","), ...rows].join("\n"), "utf-8");
   console.log(`Resultados guardados en ${filename}`);
 }
-
-// --- CLI ---
 
 const { values: args } = parseArgs({
   options: {
@@ -200,22 +192,17 @@ const { values: args } = parseArgs({
   },
 });
 
+const model = args.model as string;
 const allResults: EvalResult[] = [];
 
 if (args.all) {
-  const files = globSync("evals/**/evals.json");
-  for (const file of files) {
-    const results = await runEvals(file, args.model!);
-    allResults.push(...results);
-  }
+  const fileResults = await Promise.all(findEvalFiles().map((file) => runEvals(file, model)));
+  allResults.push(...fileResults.flat());
 } else {
-  const results = await runEvals(args.path!, args.model!);
-  allResults.push(...results);
+  allResults.push(...(await runEvals(args.path as string, model)));
 }
 
-if (args.save) {
-  saveResults(allResults, args.model!);
-}
+if (args.save) saveResults(allResults, model);
 
 const failed = allResults.filter((r) => !r.passed);
 if (failed.length > 0) process.exit(1);
