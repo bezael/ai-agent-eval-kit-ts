@@ -1,31 +1,31 @@
 # AI Agent Eval Kit — TypeScript
 
-> Sube agentes a producción con confianza — no con esperanza.
+> Ship agents to production with confidence — not hope.
 
-Un conjunto de evaluaciones listas para usar para agentes de IA: casos de test, script de ejecución y plantilla de registro de resultados.
+A ready-to-use evaluation suite for AI agents: test cases, a runner script, and a results log template.
 
-## ¿Qué problema resuelve?
+## What problem does it solve?
 
-La mayoría de devs prueba su agente manualmente un par de veces, ve que responde bien y lo sube a producción.
+Most devs test their agent manually a couple of times, see that it responds well, and ship it to production.
 
-Dos semanas después el agente falla y nadie sabe cuándo empezó.
+Two weeks later the agent breaks and nobody knows when it started.
 
-Este kit te da el sistema mínimo viable para evaluar tus agentes de forma sistemática — tanto antes del primer deploy como después de cada cambio de prompt o modelo.
+This kit gives you the minimum viable system to evaluate your agents systematically — both before the first deploy and after every prompt or model change.
 
-## Contenido
+## Contents
 
 ```
 evals/
-├── canonical/          # 10 evals que aplican a cualquier agente
+├── canonical/          # 10 evals that apply to any agent
 │   └── evals.json
-└── customer-support/   # 5 evals para agentes de soporte al cliente
+└── customer-support/   # 5 evals for customer support agents
     └── evals.json
-eval_runner.ts          # Script principal
+eval_runner.ts          # Main script
 package.json
 tsconfig.json
 ```
 
-## Inicio rápido
+## Quick start
 
 ```bash
 git clone https://github.com/bezael/ai-agent-eval-kit-ts
@@ -35,70 +35,70 @@ export ANTHROPIC_API_KEY=sk-...
 npm run eval
 ```
 
-Resultado esperado:
+Expected output:
 
 ```
-Ejecutando 10 evals desde evals/canonical/evals.json
+Running 10 evals from evals/canonical/evals.json
 
-✓ fmt-001: Respuesta en formato JSON válido
-✓ hal-001: No alucina datos que no tiene
-✓ inv-001: Maneja input vacío sin crashear
+✓ fmt-001: Response in valid JSON format
+✓ hal-001: Does not hallucinate data it doesn't have
+✓ inv-001: Handles empty input without crashing
 ...
-10/10 evals pasaron
+10/10 evals passed
 ```
 
-## Comandos disponibles
+## Available commands
 
 ```bash
-npm run eval              # Ejecuta los evals canónicos
-npm run eval:all          # Ejecuta todos los evals de todas las carpetas
-npm run eval:save         # Ejecuta todos y guarda resultados en CSV
+npm run eval              # Run the canonical evals
+npm run eval:all          # Run all evals from every folder
+npm run eval:save         # Run all and save results to CSV
 ```
 
-O con opciones manuales:
+Or with manual options:
 
 ```bash
-# Dominio específico
+# Specific domain
 npx tsx eval_runner.ts --path evals/customer-support/evals.json
 
-# Modelo diferente
+# Different model
 npx tsx eval_runner.ts --model claude-opus-4-7
 
-# Guardar resultados
+# Save results
 npx tsx eval_runner.ts --all --save
 ```
 
-## Estructura de un eval
+## Eval structure
 
 ```json
 {
   "id": "fmt-001",
-  "descripcion": "Respuesta en formato JSON válido",
-  "input": "Dame el resumen del usuario 123",
+  "descripcion": "Response in valid JSON format",
+  "input": "Give me the summary for user 123",
   "expected_format": "json",
-  "expected_keys": ["nombre", "email", "estado"]
+  "expected_keys": ["name", "email", "status"]
 }
 ```
 
-Campos disponibles:
+Available fields:
 
-| Campo | Tipo | Descripción |
+| Field | Type | Description |
 |-------|------|-------------|
-| `id` | `string` | Identificador único |
-| `descripcion` | `string` | Qué prueba este eval |
-| `input` | `string` | Mensaje enviado al agente |
-| `expected_format` | `"json" \| "text"` | Formato esperado del output |
-| `expected_keys` | `string[]` | Claves requeridas si el formato es JSON |
+| `id` | `string` | Unique identifier |
+| `descripcion` | `string` | What this eval tests |
+| `input` | `string` | Message sent to the agent |
+| `expected_format` | `"json" \| "text"` | Expected output format |
+| `expected_keys` | `string[]` | Required keys if format is JSON |
 | `expected_behavior` | `string` | `uncertainty`, `escalate`, `refuse`, `graceful`, `empathy` |
-| `max_latency_ms` | `number` | Umbral de latencia en milisegundos |
+| `max_latency_ms` | `number` | Latency threshold in milliseconds |
 
-## Añadir tus propios evals
+## Adding your own evals
 
-1. Crea una carpeta en `evals/tu-dominio/`
-2. Añade un archivo `evals.json` con tus casos
-3. Ejecuta: `npx tsx eval_runner.ts --path evals/tu-dominio/evals.json`
+1. Create a folder at `evals/your-domain/`
+2. Add an `evals.json` file with your cases
+3. Run: `npx tsx eval_runner.ts --path evals/your-domain/evals.json`
 
-## Integración con CI/CD
+## CI/CD integration
 
 ```yaml
 # .github/workflows/agent-evals.yml
@@ -124,12 +124,12 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 ```
 
-## Guía completa
+## Full guide
 
-El PDF con la explicación detallada de cada eval, criterios de paso y plantilla de registro de resultados es exclusivo para suscriptores del newsletter **Build con IA**.
+The PDF with a detailed explanation of each eval, pass criteria, and a results log template is exclusive to **Build con IA** newsletter subscribers.
 
-→ [Suscríbete gratis y descarga el PDF](https://dominicode.com/newsletter)
+→ [Subscribe for free and download the PDF](https://dominicode.com/newsletter)
 
 ---
 
-Hecho por [Bezael Pérez](https://dominicode.com) · [@dominicode](https://youtube.com/@dominicode)
+Made by [Bezael Pérez](https://dominicode.com) · [@dominicode](https://youtube.com/@dominicode)
